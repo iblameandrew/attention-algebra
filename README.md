@@ -170,6 +170,21 @@ compiler is a differentiable readout of that flow.
 
 ---
 
+## Model Providers
+
+All three layers call an LLM through the **OpenAI SDK** (via
+`langchain-openai`).  Two OpenAI-compatible backends are supported:
+
+| Provider | When to use | Required config |
+| :------- | :---------- | :-------------- |
+| **OpenRouter** | Cloud models (Gemini, Claude, Qwen, Llama, …) | `OPENROUTER_API_KEY` |
+| **llama.cpp** | Local inference with `llama-server` | `LLAMA_CPP_BASE_URL`, `LLAMA_CPP_MODEL` |
+
+Pass `provider="openrouter"` or `provider="llama.cpp"` to each layer
+class.  The Gradio UI exposes the same choice as a radio button.
+
+---
+
 ## The Three Layers
 
 The grammar is realised by a strict, three-stage compiler. Each layer
@@ -187,7 +202,10 @@ long as it respects the input/output contract.
 
 ```python
 from patterns import AlgebraAnalyst
-analyst = AlgebraAnalyst(model_name="google/gemini-2.5-flash")
+analyst = AlgebraAnalyst(
+    model_name="google/gemini-2.5-flash",
+    provider="openrouter",
+)
 expr = analyst.analyze("I am torn between exploration and holding on.")
 # '7Ne oo 3Si -> Fe'
 ```
@@ -216,7 +234,10 @@ The canonical mapping from terminal to optimisation objective:
 
 ```python
 from patterns import Composer
-composer = Composer(model_name="google/gemini-2.5-flash")
+composer = Composer(
+    model_name="google/gemini-2.5-flash",
+    provider="openrouter",
+)
 schedule = composer.compose("7Ne oo 3Si -> Fe")
 # {'schedule_logic': 'Adversarial',
 #  'global_frequency': 1.0,
@@ -244,11 +265,15 @@ shape as the speaker's cognitive state.
 ### Prerequisites
 
 * Python 3.10 or newer
-* One of:
-  * An [OpenRouter](https://openrouter.ai/) API key (cloud models).
-  * A [llama.cpp](https://github.com/ggerganov/llama.cpp) server running
-    locally with the OpenAI-compatible API enabled
-    (e.g. `llama-server -m model.gguf --port 8080`).
+* An LLM backend — pick one:
+  * **[OpenRouter](https://openrouter.ai/)** — easiest path; one API key
+    gives access to Gemini, Claude, Qwen, Llama, and other models.
+  * **[llama.cpp](https://github.com/ggerganov/llama.cpp) server** — run
+    models locally via the OpenAI-compatible endpoint:
+
+    ```bash
+    llama-server -m model.gguf --port 8080
+    ```
 
 ### Install
 
@@ -284,8 +309,9 @@ python -m patterns.app
 ```
 
 This launches a three-pane Gradio interface. Type a sentence in
-*Context*, pick a model, click *Analyze*, and watch the algebra,
-the math schedule, and the agent code appear in order.
+*Context*, choose **OpenRouter** or **llama.cpp (Local)**, pick a model,
+click *Analyze*, and watch the algebra, the math schedule, and the
+agent code appear in order.
 
 ### Programmatic
 
@@ -312,8 +338,18 @@ with open("algebra_agent.py", "w") as f:
     f.write(agent_src)
 ```
 
-For a local llama.cpp server, pass `provider="llama.cpp"` and set
-`LLAMA_CPP_BASE_URL` / `LLAMA_CPP_MODEL` in your environment.
+### Local llama.cpp
+
+```python
+import os
+
+os.environ["LLAMA_CPP_BASE_URL"] = "http://127.0.0.1:8080/v1"
+os.environ["LLAMA_CPP_MODEL"] = "local"  # must match the loaded model
+
+algebra = AlgebraAnalyst(model_name="local", provider="llama.cpp").analyze(
+    "Racing thoughts over and over."
+)
+```
 
 ---
 
@@ -321,6 +357,7 @@ For a local llama.cpp server, pass `provider="llama.cpp"` and set
 
 ```
 patterns/
+├── assets/                # README banner image
 ├── app.py                 # Gradio front-end
 ├── patterns/
 │   ├── algebra.py         # Layer 1 — the grammar + the analyst
