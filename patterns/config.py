@@ -1,65 +1,83 @@
 """Factory for chat-model clients used by the Patterns pipeline.
 
-The factory abstracts over two back-ends:
+Both back-ends speak the OpenAI Chat Completions API and are wired through
+``langchain-openai`` (which wraps the official ``openai`` SDK):
 
-* **Ollama** (local) — used when ``model_name`` is anything other than a
-  Gemini identifier.  No API key is required.
-* **Google Gemini** — used when ``model_name`` starts with ``"gemini"``
-  (case-insensitive).  Requires the ``GEMINI_API_KEY`` environment
-  variable to be set.
+* **OpenRouter** — cloud models via ``https://openrouter.ai/api/v1``.
+  Requires ``OPENROUTER_API_KEY``.
+* **llama.cpp server** — local inference via an OpenAI-compatible endpoint
+  (e.g. ``llama-server --port 8080``).  Configure with ``LLAMA_CPP_BASE_URL``
+  and optionally ``LLAMA_CPP_API_KEY`` (many local servers accept any string).
 """
 
 import os
+from typing import Literal
 
-try:
-    # Preferred import path (langchain-community is being sunset).
-    from langchain_ollama import ChatOllama
-except ImportError:  # pragma: no cover - fallback for older installs
-    from langchain_community.chat_models import ChatOllama
+from langchain_openai import ChatOpenAI
 
-try:
-    from langchain_google_genai import ChatGoogleGenerativeAI
-except ImportError:  # pragma: no cover - explicit failure if missing
-    ChatGoogleGenerativeAI = None  # type: ignore[assignment]
+Provider = Literal["openrouter", "llama.cpp"]
+
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_LLAMA_CPP_BASE_URL = "http://127.0.0.1:8080/v1"
+
+OPENROUTER_MODELS = [
+    "google/gemini-2.5-flash",
+    "google/gemini-2.5-pro",
+    "anthropic/claude-sonnet-4",
+    "qwen/qwen3-32b",
+    "meta-llama/llama-3.3-70b-instruct",
+]
+
+DEFAULT_OPENROUTER_MODEL = OPENROUTER_MODELS[0]
+DEFAULT_LLAMA_CPP_MODEL = os.getenv("LLAMA_CPP_MODEL", "local")
 
 
 class ModelFactory:
     """Build chat-model clients on demand."""
 
     @staticmethod
-    def get_model(model_name: str = "llama3", temperature: float = 0.7):
-        """Return a chat-model instance for the given ``model_name``.
+    def get_model(
+        model_name: str = DEFAULT_OPENROUTER_MODEL,
+        *,
+        provider: Provider = "openrouter",
+        temperature: float = 0.7,
+    ) -> ChatOpenAI:
+        """Return a ``ChatOpenAI`` client for the given provider and model."""
+        print(
+            f"Initializing Model: {provider}/{model_name} (Temp: {temperature})"
+        )
 
-        Parameters
-        ----------
-        model_name:
-            Either a Gemini model name (e.g. ``"gemini-2.5-flash"``) or the
-            name of a model already pulled into the local Ollama
-            installation.
-        temperature:
-            Sampling temperature forwarded to the underlying client.
-        """
-        print(f"Initializing Model: {model_name} (Temp: {temperature})")
-
-        if model_name.lower().startswith("gemini"):
-            if ChatGoogleGenerativeAI is None:
-                raise ValueError(
-                    "langchain-google-genai is not installed. "
-                    "Install it with `pip install langchain-google-genai`."
-                )
-            api_key = os.getenv("GEMINI_API_KEY")
+        if provider == "openrouter":
+            api_key = os.getenv("OPENROUTER_API_KEY")
             if not api_key:
                 raise ValueError(
-                    "GEMINI_API_KEY not found in environment variables. "
+                    "OPENROUTER_API_KEY not found in environment variables. "
                     "Set it in your shell or in a .env file."
                 )
-
-            return ChatGoogleGenerativeAI(
+            return ChatOpenAI(
                 model=model_name,
                 temperature=temperature,
-                google_api_key=api_key,
-                # Gemini rejects system-only messages on some endpoints.
-                convert_system_message_to_human=True,
+                openai_api_key=api_key,
+                openai_api_base=OPENROUTER_BASE_URL,
+                default_headers={
+                    "HTTP-Referer": os.getenv(
+                        "OPENROUTER_HTTP_REFERER",
+                        "https://github.com/iblameandrew/patterns",
+                    ),
+                    "X-Title": os.getenv("OPENROUTER_APP_TITLE", "Patterns"),
+                },
             )
 
-        return ChatOllama(model=model_name, temperature=temperature)
+        if provider == "llama.cpp":
+            base_url = os.getenv("LLAMA_CPP_BASE_URL", DEFAULT_LLAMA_CPP_BASE_URL)
+            api_key = os.getenv("LLAMA_CPP_API_KEY", "no-key")
+            return ChatOpenAI(
+                model=model_name or DEFAULT_LLAMA_CPP_MODEL,
+                temperature=temperature,
+                openai_api_key=api_key,
+                openai_api_base=base_url,
+            )
+
+        raise ValueError(
+            f"Unknown provider {provider!r}. Expected 'openrouter' or 'llama.cpp'."
+        )

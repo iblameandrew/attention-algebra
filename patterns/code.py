@@ -12,7 +12,7 @@ import logging
 
 from langchain_core.prompts import PromptTemplate
 
-from .config import ModelFactory
+from .config import DEFAULT_OPENROUTER_MODEL, ModelFactory, Provider
 from .utils import strip_code_fences, strip_think_tags
 
 log = logging.getLogger(__name__)
@@ -90,11 +90,18 @@ You will receive a JSON object containing:
 class CodeGenerator:
     """Generate a stand-alone ``AlgebraAgent`` module from a schedule."""
 
-    def __init__(self, model_name: str = "llama3", temperature: float = 0.2):
+    def __init__(
+        self,
+        model_name: str = DEFAULT_OPENROUTER_MODEL,
+        provider: Provider = "openrouter",
+        temperature: float = 0.2,
+    ):
         # Code generation is brittle: keep the temperature low so the
         # LLM does not invent non-existent ObjectiveConfig arguments.
         self.llm = ModelFactory.get_model(
-            model_name=model_name, temperature=temperature
+            model_name=model_name,
+            provider=provider,
+            temperature=temperature,
         )
         self.prompt = PromptTemplate(
             template=CODING_SYSTEM_PROMPT,

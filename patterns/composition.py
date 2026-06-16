@@ -22,7 +22,7 @@ import re
 
 from langchain_core.prompts import PromptTemplate
 
-from .config import ModelFactory
+from .config import DEFAULT_OPENROUTER_MODEL, ModelFactory, Provider
 from .utils import strip_think_tags
 
 # Keep the prompt as a regular string.  PromptTemplate substitutes
@@ -94,11 +94,18 @@ def _extract_json(text: str) -> str:
 class Composer:
     """Turn a Cognitive-Algebra expression into a Mathematical Schedule."""
 
-    def __init__(self, model_name: str = "llama3", temperature: float = 0.2):
+    def __init__(
+        self,
+        model_name: str = DEFAULT_OPENROUTER_MODEL,
+        provider: Provider = "openrouter",
+        temperature: float = 0.2,
+    ):
         # Strict JSON adherence requires low temperature.  Anything above
         # ~0.3 routinely produces broken JSON on smaller local models.
         self.llm = ModelFactory.get_model(
-            model_name=model_name, temperature=temperature
+            model_name=model_name,
+            provider=provider,
+            temperature=temperature,
         )
         self.prompt = PromptTemplate(
             template=COMPOSER_SYSTEM_PROMPT,

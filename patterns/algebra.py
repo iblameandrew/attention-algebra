@@ -9,7 +9,7 @@ and whose operators encode how those functions interact.  See
 
 from langchain_core.prompts import PromptTemplate
 
-from .config import ModelFactory
+from .config import DEFAULT_OPENROUTER_MODEL, ModelFactory, Provider
 
 # The prompt is intentionally a regular string (not an f-string) so that
 # we do not have to escape every other LaTeX brace.  PromptTemplate only
@@ -63,11 +63,18 @@ Text: {text}
 class AlgebraAnalyst:
     """Deconstruct natural language into a Cognitive-Algebra expression."""
 
-    def __init__(self, model_name: str = "llama3", temperature: float = 0.4):
+    def __init__(
+        self,
+        model_name: str = DEFAULT_OPENROUTER_MODEL,
+        provider: Provider = "openrouter",
+        temperature: float = 0.4,
+    ):
         # Moderate temperature: the analyst needs to be creative enough to
         # interpret metaphor but stable enough to keep the syntax valid.
         self.llm = ModelFactory.get_model(
-            model_name=model_name, temperature=temperature
+            model_name=model_name,
+            provider=provider,
+            temperature=temperature,
         )
         self.prompt = PromptTemplate(
             template=ALGEBRA_SYSTEM_PROMPT,

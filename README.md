@@ -4,7 +4,7 @@
 > space of *functional constituents*, and compiles the result into
 > executable reinforcement-learning agents.
 
-![patterns](https://github.com/user-attachments/assets/b5a1e01f-f396-46c2-a88a-d5d83727bc39)
+![Patterns — a cognitive grammar compiler](assets/patterns-hero.png)
 
 ---
 
@@ -187,7 +187,7 @@ long as it respects the input/output contract.
 
 ```python
 from patterns import AlgebraAnalyst
-analyst = AlgebraAnalyst(model_name="qwen3:30b")
+analyst = AlgebraAnalyst(model_name="google/gemini-2.5-flash")
 expr = analyst.analyze("I am torn between exploration and holding on.")
 # '7Ne oo 3Si -> Fe'
 ```
@@ -216,7 +216,7 @@ The canonical mapping from terminal to optimisation objective:
 
 ```python
 from patterns import Composer
-composer = Composer(model_name="qwen3:30b")
+composer = Composer(model_name="google/gemini-2.5-flash")
 schedule = composer.compose("7Ne oo 3Si -> Fe")
 # {'schedule_logic': 'Adversarial',
 #  'global_frequency': 1.0,
@@ -245,9 +245,10 @@ shape as the speaker's cognitive state.
 
 * Python 3.10 or newer
 * One of:
-  * [Ollama](https://ollama.com/) running locally, with at least one
-    chat model pulled (e.g. `ollama pull qwen3:30b`).
-  * A Google Gemini API key.
+  * An [OpenRouter](https://openrouter.ai/) API key (cloud models).
+  * A [llama.cpp](https://github.com/ggerganov/llama.cpp) server running
+    locally with the OpenAI-compatible API enabled
+    (e.g. `llama-server -m model.gguf --port 8080`).
 
 ### Install
 
@@ -259,17 +260,18 @@ pip install -r requirements.txt
 
 ### Configure
 
-Create a `.env` file in the project root (or export the variable in
+Create a `.env` file in the project root (or export the variables in
 your shell):
 
 ```bash
-# For Gemini
-echo 'GEMINI_API_KEY=your_api_key_here' > .env
-```
+# OpenRouter (cloud)
+echo 'OPENROUTER_API_KEY=your_api_key_here' > .env
 
-> **Note.** The variable name is `GEMINI_API_KEY` everywhere — the
-> model is Google Gemini, but the variable has been `GEMINI_API_KEY`
-> since the first release.
+# llama.cpp server (local) — optional overrides
+# LLAMA_CPP_BASE_URL=http://127.0.0.1:8080/v1
+# LLAMA_CPP_MODEL=local
+# LLAMA_CPP_API_KEY=no-key
+```
 
 ---
 
@@ -291,22 +293,27 @@ the math schedule, and the agent code appear in order.
 import os
 from patterns import AlgebraAnalyst, Composer, CodeGenerator
 
-os.environ.setdefault("GEMINI_API_KEY", "...")
-model = "gemini-2.5-flash"
+os.environ.setdefault("OPENROUTER_API_KEY", "...")
+model = "google/gemini-2.5-flash"
 
 # Layer 1: parse.
-algebra = AlgebraAnalyst(model_name=model).analyze(
+algebra = AlgebraAnalyst(model_name=model, provider="openrouter").analyze(
     "I explore impulsively but feel held back by past regrets."
 )
 
 # Layer 2: compose.
-schedule = Composer(model_name=model).compose(algebra)
+schedule = Composer(model_name=model, provider="openrouter").compose(algebra)
 
 # Layer 3: emit code.
-agent_src = CodeGenerator(model_name=model).generate_code(schedule)
+agent_src = CodeGenerator(model_name=model, provider="openrouter").generate_code(
+    schedule
+)
 with open("algebra_agent.py", "w") as f:
     f.write(agent_src)
 ```
+
+For a local llama.cpp server, pass `provider="llama.cpp"` and set
+`LLAMA_CPP_BASE_URL` / `LLAMA_CPP_MODEL` in your environment.
 
 ---
 
@@ -319,7 +326,7 @@ patterns/
 │   ├── algebra.py         # Layer 1 — the grammar + the analyst
 │   ├── composition.py     # Layer 2 — the harmonic composer
 │   ├── code.py            # Layer 3 — the agent code generator
-│   ├── config.py          # Model factory (Ollama / Gemini)
+│   ├── config.py          # Model factory (OpenRouter / llama.cpp)
 │   ├── utils.py           # strip_think_tags, strip_code_fences
 │   └── __init__.py
 ├── requirements.txt

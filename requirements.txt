@@ -1,8 +1,6 @@
 langchain>=0.2
 langchain-core>=0.2
-langchain-community>=0.2
-langchain-ollama>=0.1
-langchain-google-genai>=2.0
-ollama>=0.3
+langchain-openai>=0.2
+openai>=1.40
 gradio>=4.0
 python-dotenv>=1.0
