@@ -79,11 +79,33 @@ def _provider_model_choices(provider: str):
     return gr.Dropdown(choices=choices, value=default, interactive=True)
 
 
-def _validate_provider(provider: str) -> str | None:
+def _resolve_openrouter_key(api_key_input: str) -> str:
+    """Prefer the UI value, then fall back to the environment."""
+    return (api_key_input or "").strip() or (os.getenv("OPENROUTER_API_KEY") or "").strip()
+
+
+def _apply_openrouter_key(api_key_input: str) -> str:
+    """Set ``OPENROUTER_API_KEY`` for this request and return the resolved key."""
+    key = _resolve_openrouter_key(api_key_input)
+    if key:
+        os.environ["OPENROUTER_API_KEY"] = key
+    return key
+
+
+def _validate_provider(provider: str, openrouter_api_key: str = "") -> str | None:
     """Return an error message when credentials are missing, else ``None``."""
-    if provider == PROVIDER_OPENROUTER and not os.getenv("OPENROUTER_API_KEY"):
-        return "Error: OPENROUTER_API_KEY missing in environment."
+    if provider == PROVIDER_OPENROUTER and not _resolve_openrouter_key(openrouter_api_key):
+        return (
+            "Error: OpenRouter API key is required. "
+            "Enter it in the field above or set OPENROUTER_API_KEY in a .env file."
+        )
     return None
+
+
+def _toggle_provider_fields(provider: str):
+    """Show OpenRouter API key only when that provider is selected."""
+    is_openrouter = provider == PROVIDER_OPENROUTER
+    return gr.update(visible=is_openrouter)
 
 
 # --- MODEL CACHE -----------------------------------------------------------
@@ -92,8 +114,8 @@ _MODEL_CACHE: dict[tuple[str, str, str], object] = {}
 _SPECTROGRAM_READER = SpectrogramReader()
 
 
-def _get_analyst(model_name: str, provider: str) -> AlgebraAnalyst:
-    key = (model_name, provider, "algebra")
+def _get_analyst(model_name: str, provider: str, credential: str) -> AlgebraAnalyst:
+    key = (model_name, provider, "algebra", credential)
     if key not in _MODEL_CACHE:
         _MODEL_CACHE[key] = AlgebraAnalyst(
             model_name=model_name, provider=_provider_key(provider)
@@ -101,8 +123,8 @@ def _get_analyst(model_name: str, provider: str) -> AlgebraAnalyst:
     return _MODEL_CACHE[key]
 
 
-def _get_composer(model_name: str, provider: str) -> Composer:
-    key = (model_name, provider, "composer")
+def _get_composer(model_name: str, provider: str, credential: str) -> Composer:
+    key = (model_name, provider, "composer", credential)
     if key not in _MODEL_CACHE:
         _MODEL_CACHE[key] = Composer(
             model_name=model_name, provider=_provider_key(provider)
@@ -113,7 +135,12 @@ def _get_composer(model_name: str, provider: str) -> Composer:
 # --- PIPELINE --------------------------------------------------------------
 
 
-def process_pattern(text: str, model_name: str, provider: str):
+def process_pattern(
+    text: str,
+    model_name: str,
+    provider: str,
+    openrouter_api_key: str = "",
+):
     """Run the three-layer pipeline and return ``(algebra, math, image, report)``."""
     empty_img = None
 
@@ -123,9 +150,13 @@ def process_pattern(text: str, model_name: str, provider: str):
     if not model_name:
         return "Error: no model selected.", "", empty_img, ""
 
-    provider_error = _validate_provider(provider)
+    provider_error = _validate_provider(provider, openrouter_api_key)
     if provider_error:
         return provider_error, "", empty_img, ""
+
+    credential = ""
+    if provider == PROVIDER_OPENROUTER:
+        credential = _apply_openrouter_key(openrouter_api_key)
 
     algebraic_expr = ""
     math_report = ""
@@ -134,7 +165,7 @@ def process_pattern(text: str, model_name: str, provider: str):
     # Layer 1 — Algebra
     try:
         print(f"--- L1: Algebra ({provider}/{model_name}) ---")
-        analyst = _get_analyst(model_name, provider)
+        analyst = _get_analyst(model_name, provider, credential)
         algebraic_expr = _strip_think_tags(analyst.analyze(text))
     except Exception as exc:  # noqa: BLE001 — surface the message verbatim
         return f"Error L1: {exc}", "", empty_img, ""
@@ -142,7 +173,7 @@ def process_pattern(text: str, model_name: str, provider: str):
     # Layer 2 — Composition
     try:
         print("--- L2: Composition ---")
-        composer = _get_composer(model_name, provider)
+        composer = _get_composer(model_name, provider, credential)
         composition = composer.compose(algebraic_expr)
 
         if isinstance(composition, dict):
@@ -238,6 +269,12 @@ def build_ui() -> gr.Blocks:
                         value=PROVIDER_OPENROUTER,
                         label="Provider",
                     )
+                    openrouter_api_key = gr.Textbox(
+                        label="OpenRouter API Key",
+                        placeholder="sk-or-v1-... (or set OPENROUTER_API_KEY in .env)",
+                        type="password",
+                        value=os.getenv("OPENROUTER_API_KEY", ""),
+                    )
                     model = gr.Dropdown(
                         choices=initial_choices,
                         value=initial_default,
@@ -266,10 +303,19 @@ def build_ui() -> gr.Blocks:
             out3 = gr.Image(label="Cognitive Spectrum", type="numpy")
             out4 = gr.Markdown(label="Spectrum Reading")
 
-        provider.change(_provider_model_choices, inputs=[provider], outputs=[model])
+        provider.change(
+            _provider_model_choices,
+            inputs=[provider],
+            outputs=[model],
+        )
+        provider.change(
+            _toggle_provider_fields,
+            inputs=[provider],
+            outputs=[openrouter_api_key],
+        )
         btn.click(
             process_pattern,
-            inputs=[txt_input, model, provider],
+            inputs=[txt_input, model, provider, openrouter_api_key],
             outputs=[out1, out2, out3, out4],
         )
 
