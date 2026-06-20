@@ -15,7 +15,6 @@ from attention_algebra.composition import Composer
 from attention_algebra.config import (
     DEFAULT_LLAMA_CPP_MODEL,
     DEFAULT_OPENROUTER_MODEL,
-    OPENROUTER_MODELS,
     ModelFactory,
 )
 from attention_algebra.spectrum import SpectrogramReader
@@ -66,19 +65,6 @@ def _provider_key(provider: str) -> str:
     return "llama.cpp"
 
 
-def _provider_model_defaults(provider: str) -> tuple[list[str], str]:
-    """Return ``(choices, default)`` for the model ``Dropdown``."""
-    if provider == PROVIDER_OPENROUTER:
-        return list(OPENROUTER_MODELS), DEFAULT_OPENROUTER_MODEL
-    return [DEFAULT_LLAMA_CPP_MODEL], DEFAULT_LLAMA_CPP_MODEL
-
-
-def _provider_model_choices(provider: str):
-    """Build a Gradio ``Dropdown`` update for the selected provider."""
-    choices, default = _provider_model_defaults(provider)
-    return gr.Dropdown(choices=choices, value=default, interactive=True)
-
-
 def _resolve_openrouter_key(api_key_input: str) -> str:
     """Prefer the UI value, then fall back to the environment."""
     return (api_key_input or "").strip() or (os.getenv("OPENROUTER_API_KEY") or "").strip()
@@ -103,9 +89,21 @@ def _validate_provider(provider: str, openrouter_api_key: str = "") -> str | Non
 
 
 def _toggle_provider_fields(provider: str):
-    """Show OpenRouter API key only when that provider is selected."""
+    """Update credential and model fields when the provider changes."""
     is_openrouter = provider == PROVIDER_OPENROUTER
-    return gr.update(visible=is_openrouter)
+    if is_openrouter:
+        model_update = gr.update(
+            label="OpenRouter Model Slug",
+            placeholder="e.g. google/gemini-2.5-flash, anthropic/claude-sonnet-4",
+            value=DEFAULT_OPENROUTER_MODEL,
+        )
+    else:
+        model_update = gr.update(
+            label="llama.cpp Model Name",
+            placeholder="local (must match the model loaded in llama-server)",
+            value=DEFAULT_LLAMA_CPP_MODEL,
+        )
+    return gr.update(visible=is_openrouter), model_update
 
 
 # --- MODEL CACHE -----------------------------------------------------------
@@ -147,8 +145,9 @@ def process_pattern(
     if not text or not text.strip():
         return "Please enter text.", "", empty_img, ""
 
+    model_name = (model_name or "").strip()
     if not model_name:
-        return "Error: no model selected.", "", empty_img, ""
+        return "Error: enter a model slug (e.g. google/gemini-2.5-flash).", "", empty_img, ""
 
     provider_error = _validate_provider(provider, openrouter_api_key)
     if provider_error:
@@ -253,8 +252,6 @@ h1 { text-align: center; color: #2d3748; }
 
 def build_ui() -> gr.Blocks:
     """Construct the Gradio Blocks app."""
-    initial_choices, initial_default = _provider_model_defaults(PROVIDER_OPENROUTER)
-
     with gr.Blocks(title="Attention Algebra Engine") as demo:
         gr.HTML(custom_css)
 
@@ -275,11 +272,10 @@ def build_ui() -> gr.Blocks:
                         type="password",
                         value=os.getenv("OPENROUTER_API_KEY", ""),
                     )
-                    model = gr.Dropdown(
-                        choices=initial_choices,
-                        value=initial_default,
-                        label="Model",
-                        allow_custom_value=True,
+                    model = gr.Textbox(
+                        label="OpenRouter Model Slug",
+                        placeholder="e.g. google/gemini-2.5-flash, anthropic/claude-sonnet-4",
+                        value=DEFAULT_OPENROUTER_MODEL,
                     )
                     btn = gr.Button("Analyze", variant="primary")
 
@@ -304,14 +300,9 @@ def build_ui() -> gr.Blocks:
             out4 = gr.Markdown(label="Spectrum Reading")
 
         provider.change(
-            _provider_model_choices,
-            inputs=[provider],
-            outputs=[model],
-        )
-        provider.change(
             _toggle_provider_fields,
             inputs=[provider],
-            outputs=[openrouter_api_key],
+            outputs=[openrouter_api_key, model],
         )
         btn.click(
             process_pattern,
@@ -327,7 +318,6 @@ if __name__ == "__main__":
 
 
 __all__ = [
-    "OPENROUTER_MODELS",
     "ModelFactory",
     "build_ui",
     "process_pattern",

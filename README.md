@@ -350,7 +350,7 @@ python app.py
 ```
 
 This launches a three-pane Gradio interface. Type a sentence in
-*Context*, choose **OpenRouter** or **llama.cpp (Local)**, pick a model,
+*Context*, choose **OpenRouter** or **llama.cpp (Local)**, enter a model slug,
 click *Analyze*, and watch the algebra, the math schedule, and the
 cognitive spectrogram appear in order.
 
