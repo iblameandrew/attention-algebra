@@ -1,4 +1,4 @@
-"""Shared helpers used across the Patterns pipeline."""
+"""Shared helpers used across the Attention Algebra pipeline."""
 
 import re
 

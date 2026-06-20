@@ -1,4 +1,4 @@
-# Patterns v0.3.0
+# Attention Algebra v0.3.0
 
 Backend migration release: Ollama and Gemini are replaced by two
 OpenAI-compatible providers wired through the official OpenAI SDK
@@ -14,7 +14,7 @@ OpenAI-compatible providers wired through the official OpenAI SDK
   `LLAMA_CPP_BASE_URL` (default `http://127.0.0.1:8080/v1`),
   `LLAMA_CPP_MODEL`, and optional `LLAMA_CPP_API_KEY`.
 - **New hero image.** Replaced the README GIF with a static banner in
-  `assets/patterns-hero.png`.
+  `assets/attention-algebra-hero.png`.
 
 ## Breaking changes
 

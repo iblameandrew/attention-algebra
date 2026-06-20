@@ -1,10 +1,10 @@
-# Patterns — A Cognitive Grammar for Language
+# Attention Algebra — A Cognitive Grammar for Language
 
 > A formal grammar that lifts natural language into a higher-dimensional
 > space of *functional constituents*, and compiles the result into
 > executable reinforcement-learning agents.
 
-![Patterns — a cognitive grammar compiler](assets/patterns-hero.png)
+![Attention Algebra — a cognitive grammar compiler](assets/attention-algebra-hero.png)
 
 ---
 
@@ -16,7 +16,7 @@ projection is lossy: two sentences that look nothing alike can be
 driven by the same internal state, and a single sentence can be the
 shadow of many overlapping states.
 
-**Patterns** is a *grammar* for the inverse projection. Given a piece
+**Attention Algebra** is a *grammar* for the inverse projection. Given a piece
 of natural language, it parses the string into an expression in a
 small formal language whose terminals are the eight irreducible
 *functional constituents* of cognition and whose operators describe
@@ -27,7 +27,7 @@ original sentence.
 
 In one sentence:
 
-> *Patterns is a type system and compiler for language, where the
+> *Attention Algebra is a type system and compiler for language, where the
 > types are the eight Jungian functions and the compiled artefacts
 > are reinforcement-learning policies whose loss landscapes are
 > faithful encodings of the speaker's cognitive state.*
@@ -126,7 +126,7 @@ accel      ::=  [1-9][0-9]*    attached to a parenthesised expression
 * `|` requires two terminals of *different domains*. Same-domain
   alternation collapses to a single function.
 
-A full BNF lives in [`patterns/algebra.py`](patterns/algebra.py); the
+A full BNF lives in [`attention_algebra/algebra.py`](attention_algebra/algebra.py); the
 LLM analyst is given the rules and asked to emit parseable strings.
 
 ### Worked examples
@@ -165,7 +165,7 @@ like
 > harmony keeps dragging me back."
 
 parses to a single point in that space; a paragraph parses to a
-*trajectory*; a conversation parses to a *flow*. The Patterns
+*trajectory*; a conversation parses to a *flow*. The Attention Algebra
 compiler is a differentiable readout of that flow.
 
 ---
@@ -193,7 +193,7 @@ themselves are language-model calls constrained by an explicit
 production rule. You can swap any layer for your own implementation as
 long as it respects the input/output contract.
 
-### Layer 1 — The Algebraic Analyst (`patterns.algebra`)
+### Layer 1 — The Algebraic Analyst (`attention_algebra.algebra`)
 
 * **Input:** natural language.
 * **Process:** an LLM, prompted with the grammar reference, produces
@@ -201,7 +201,7 @@ long as it respects the input/output contract.
 * **Output:** a *type-checked* expression in the grammar.
 
 ```python
-from patterns import AlgebraAnalyst
+from attention_algebra import AlgebraAnalyst
 analyst = AlgebraAnalyst(
     model_name="google/gemini-2.5-flash",
     provider="openrouter",
@@ -210,7 +210,7 @@ expr = analyst.analyze("I am torn between exploration and holding on.")
 # '7Ne oo 3Si -> Fe'
 ```
 
-### Layer 2 — The Harmonic Composer (`patterns.composition`)
+### Layer 2 — The Harmonic Composer (`attention_algebra.composition`)
 
 * **Input:** a grammar expression.
 * **Process:** an LLM, prompted with the function-to-objective table
@@ -233,7 +233,7 @@ The canonical mapping from terminal to optimisation objective:
 | `Fi`     | `SelectionObjective`   | $e^{-d(s, s_{t-1})}$                | Stay consistent with the past.       |
 
 ```python
-from patterns import Composer
+from attention_algebra import Composer
 composer = Composer(
     model_name="google/gemini-2.5-flash",
     provider="openrouter",
@@ -245,7 +245,7 @@ schedule = composer.compose("7Ne oo 3Si -> Fe")
 #  'math_narrative': '...'}
 ```
 
-### Layer 3 — The Mechanic (`patterns.code`)
+### Layer 3 — The Mechanic (`attention_algebra.code`)
 
 * **Input:** the Mathematical Schedule.
 * **Process:** an LLM emits a stand-alone Python file deriving from
@@ -278,8 +278,8 @@ shape as the speaker's cognitive state.
 ### Install
 
 ```bash
-git clone https://github.com/iblameandrew/patterns.git
-cd patterns
+git clone https://github.com/iblameandrew/attention-algebra.git
+cd attention-algebra
 pip install -r requirements.txt
 ```
 
@@ -305,7 +305,7 @@ echo 'OPENROUTER_API_KEY=your_api_key_here' > .env
 ### Interactive UI
 
 ```bash
-python -m patterns.app
+python app.py
 ```
 
 This launches a three-pane Gradio interface. Type a sentence in
@@ -317,7 +317,7 @@ agent code appear in order.
 
 ```python
 import os
-from patterns import AlgebraAnalyst, Composer, CodeGenerator
+from attention_algebra import AlgebraAnalyst, Composer, CodeGenerator
 
 os.environ.setdefault("OPENROUTER_API_KEY", "...")
 model = "google/gemini-2.5-flash"
@@ -356,10 +356,10 @@ algebra = AlgebraAnalyst(model_name="local", provider="llama.cpp").analyze(
 ## Repository Layout
 
 ```
-patterns/
+attention-algebra/
 ├── assets/                # README banner image
 ├── app.py                 # Gradio front-end
-├── patterns/
+├── attention_algebra/
 │   ├── algebra.py         # Layer 1 — the grammar + the analyst
 │   ├── composition.py     # Layer 2 — the harmonic composer
 │   ├── code.py            # Layer 3 — the agent code generator
@@ -385,7 +385,7 @@ benchmark: a model is generally intelligent iff its distribution
 over grammar expressions matches the human distribution under KL
 divergence below a threshold.
 
-In the meantime, Patterns is a tool for *diagnosing* what a model is
+In the meantime, Attention Algebra is a tool for *diagnosing* what a model is
 doing. Drop a chain-of-thought trace in, get the grammar expression
 out, and read the cognitive state of the model the way a spectrogram
 reads a sound.

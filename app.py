@@ -1,4 +1,4 @@
-"""Patterns — Gradio front-end.
+"""Attention Algebra — Gradio front-end.
 
 Wires the three pipeline layers (Algebra → Composition → Code) into a
 simple three-pane interface.  Each model is instantiated lazily on the
@@ -11,10 +11,10 @@ import re
 import gradio as gr
 from dotenv import load_dotenv
 
-from patterns.algebra import AlgebraAnalyst
-from patterns.code import CodeGenerator
-from patterns.composition import Composer
-from patterns.config import (
+from attention_algebra.algebra import AlgebraAnalyst
+from attention_algebra.code import CodeGenerator
+from attention_algebra.composition import Composer
+from attention_algebra.config import (
     DEFAULT_LLAMA_CPP_MODEL,
     DEFAULT_OPENROUTER_MODEL,
     OPENROUTER_MODELS,
@@ -232,11 +232,11 @@ def build_ui() -> gr.Blocks:
     """Construct the Gradio Blocks app."""
     initial_choices, initial_default = _provider_model_defaults(PROVIDER_OPENROUTER)
 
-    with gr.Blocks(title="Patterns Engine") as demo:
+    with gr.Blocks(title="Attention Algebra Engine") as demo:
         gr.HTML(custom_css)
 
         with gr.Column(elem_classes=["container"]):
-            gr.Markdown("# Patterns: Cognitive Transpiler")
+            gr.Markdown("# Attention Algebra: Cognitive Transpiler")
 
             with gr.Row():
                 txt_input = gr.Textbox(label="Context", lines=4)

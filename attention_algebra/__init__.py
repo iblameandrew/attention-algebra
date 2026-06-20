@@ -1,9 +1,9 @@
-"""Public API for the ``patterns`` package.
+"""Public API for the ``attention_algebra`` package.
 
 The three layers of the Cognitive Grammar compiler are exposed as
 top-level classes so that the typical user code is::
 
-    from patterns import AlgebraAnalyst, Composer, CodeGenerator
+    from attention_algebra import AlgebraAnalyst, Composer, CodeGenerator
 
 For programmatic composition, the smaller utilities (``strip_think_tags``,
 ``strip_code_fences``) are also re-exported.

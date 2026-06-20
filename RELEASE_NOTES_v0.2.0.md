@@ -1,4 +1,4 @@
-# Patterns v0.2.0
+# Attention Algebra v0.2.0
 
 A bug-fix and infrastructure release that also reframes the project
 as a formal grammar for lifting natural language into a
@@ -7,11 +7,11 @@ higher-dimensional space of cognitive functional constituents.
 ## Highlights
 
 - **Reframed documentation.** The README is now organised around the
-  idea of *Patterns as a grammar*: an explicit terminal/operator
+  idea of *Attention Algebra as a grammar*: an explicit terminal/operator
   reference, a worked BNF, a description of the four-dimensional
   functional space it lives in, and a `parse → compose → emit`
   pipeline diagram.
-- **`patterns.utils` module.** A single home for the
+- **`attention_algebra.utils` module.** A single home for the
   `strip_think_tags` and `strip_code_fences` helpers used across all
   three layers.
 
@@ -56,6 +56,6 @@ higher-dimensional space of cognitive functional constituents.
   and `langchain-ollama`.
 - `app.py`: `build_ui()` is now a factory so the Gradio app can be
   embedded in tests.
-- The public `patterns` package re-exports `strip_think_tags`,
+- The public `attention_algebra` package re-exports `strip_think_tags`,
   `strip_code_fences`, `ModelFactory`, and the three layer classes;
   `__version__` is set to `0.2.0`.
