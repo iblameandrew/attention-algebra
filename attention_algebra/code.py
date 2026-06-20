@@ -17,10 +17,6 @@ from .utils import strip_code_fences, strip_think_tags
 
 log = logging.getLogger(__name__)
 
-# Plain string prompt — only ``{schedule_json}`` is a template variable.
-# We keep it as a single line for the first example block to make sure
-# no stray ``\n`` artefacts are introduced by the LLM that interprets
-# the schedule as multi-line.
 CODING_SYSTEM_PROMPT = """
 You are an expert Reinforcement Learning Engineer and Computational Psychologist.
 Your task is to generate a Python file implementing a dynamic `AlgebraAgent` class based on a provided "Harmonic Schedule" JSON.
@@ -33,9 +29,30 @@ You are extending a library called `capo.py`.
 
 ### INPUT DATA (The Harmonic Schedule):
 You will receive a JSON object containing:
-1. `score`: A list of objectives. Each has a `symbol` (class name), `mass` (base weight), and `voice` (name).
-2. `schedule_logic`: The dynamics type ("Orbital", "Drag", "Stochastic Switching", "Adversarial", "Linear").
-3. `global_frequency`: A float representing acceleration/speed.
+1. `score`: objectives with `symbol`, `mass`, `voice`, optional `role` (stem/loop/bulge/primary/secondary).
+2. `schedule_logic`: dominant dynamics type (see list below).
+3. `global_frequency`: acceleration/speed float.
+4. `nodes`: optional tree of sub-structures — recurse when present.
+5. `fold_energy`: optional MFE value from `fold[]` expressions.
+
+### SCHEDULE LOGIC IMPLEMENTATIONS:
+
+**Sequential (original):**
+- **"Orbital"**: `sin`/`cos` phase-offset weight modulation on `step_count * global_frequency`.
+- **"Drag"**: exponential decay on first objective, growth on second.
+- **"Stochastic Switching"** / **"Domain Switching"**: `random.random() < frequency` toggles `enabled`.
+- **"Adversarial"**: negative weight on secondary objectives.
+- **"Linear"**: constant weights.
+
+**RNA-inspired:**
+- **"Cooperative Binding"**: stem objectives share `weight * exp(-distance/lambda)`; loop objectives at `(1 - exp(-distance/lambda)) * mass`.  Store distance in metadata.
+- **"Feedback Loop"**: `weight * exp(-alpha * step_count)` plus blend with previous-step objective via metadata history.
+- **"Partial Adversarial"**: primary weight unchanged; bulge objective at `epsilon * mass` (epsilon=0.1).
+- **"Crossing Constraints"**: adversarial weights with constraint flag in metadata; scale secondary by 0.5 when constraint active.
+- **"Softmax Junction"**: compute softmax over all objective masses each step; set weights to `mass * softmax_prob`.
+- **"Amplified Binding"**: multiply all weights by `gamma=1.5`.
+- **"Global Equilibrium"**: use `fold_energy` to scale all weights by `exp(-fold_energy / 10)`.
+- **"Sequential Commitment"**: enable objectives progressively — objective `i` activates when `step_count >= i * commit_interval` (default interval=10).
 
 ### INSTRUCTIONS:
 
@@ -43,44 +60,22 @@ You will receive a JSON object containing:
 2. **Class Definition**: Define `class AlgebraAgent(PPOAgent):`.
 
 3. **__init__(self, config)**:
-   - Store `self.global_frequency` from the JSON input.
-   - Initialize `self.step_count = 0`.
-   - Create a dictionary `self.objective_configs`.
-   - Iterate through the `score` list in the JSON:
-     - Create an `ObjectiveConfig` for each item.
-     - `name` = item['voice']
-     - `weight` = item['mass']
-     - `metadata` = {{"role": item['voice'], "math_symbol": item['symbol']}}
-   - Update `config` with `self.objective_configs` and call `super().__init__(config)`.
+   - Store `self.global_frequency`, `self.schedule_logic`, `self.fold_energy`, `self.nodes` from JSON.
+   - Initialize `self.step_count = 0`, `self.prev_weights = {{}}`.
+   - Build `self.objective_configs` from `score` via `ObjectiveConfig(name, enabled, weight, mode, metadata)`.
+   - Call `super().__init__(config)`.
 
 4. **get_action(self, state)**:
-   - Override this method.
    - Increment `self.step_count`.
-   - **Implement the Dynamics** based on `schedule_logic`:
-     - **"Orbital"**:
-       - Use `math.sin(self.step_count * self.global_frequency)` to modulate weights.
-       - If multiple objectives exist, offset their phases (e.g., `sin` for one, `cos` for another).
-     - **"Drag"**:
-       - Apply exponential decay to the first objective: `weight * exp(-self.step_count * freq)`.
-       - Apply growth to the second (if exists): `weight * (1 - exp(...))`.
-     - **"Stochastic Switching"**:
-       - Use `random.random() < frequency` to toggle `obj.enabled` True/False.
-     - **"Adversarial"**:
-       - Flip the weight of the second objective to be negative or distinct from the first.
-     - **"Linear"**: Keep weights constant.
-   - *Crucial*: You must update `self.objective_configs[name].weight` (or `.enabled`) dynamically before calling `super().get_action(state)`.
+   - Apply dominant `schedule_logic` dynamics (and recurse `nodes` if nested).
+   - Update `self.objective_configs[name].weight` or `.enabled` before `super().get_action(state)`.
    - Return `super().get_action(state)`.
 
-5. **Execution Block**:
-   - Add `if __name__ == "__main__":`
-   - Define a standard `config` dict (env dims, hyperparameters).
-   - Instantiate `AlgebraAgent(config)`.
-   - Print a message confirming the pattern loaded.
+5. **Execution Block**: `if __name__ == "__main__":` with config dict and instantiation.
 
 ### OUTPUT RULES:
-- Output **ONLY** valid Python code.
-- Do not use Markdown backticks.
-- Ensure logic handles cases where `score` has 1 or multiple items.
+- Output **ONLY** valid Python code.  No Markdown backticks.
+- Handle `score` with 1 or multiple items and optional `nodes` tree.
 
 ### INPUT JSON:
 {schedule_json}
@@ -96,8 +91,6 @@ class CodeGenerator:
         provider: Provider = "openrouter",
         temperature: float = 0.2,
     ):
-        # Code generation is brittle: keep the temperature low so the
-        # LLM does not invent non-existent ObjectiveConfig arguments.
         self.llm = ModelFactory.get_model(
             model_name=model_name,
             provider=provider,
@@ -110,19 +103,10 @@ class CodeGenerator:
         self.chain = self.prompt | self.llm
 
     def generate_code(self, composition) -> str:
-        """Return the cleaned Python source for ``AlgebraAgent``.
-
-        ``composition`` may be either a dict (the normal case) or the
-        raw string returned by Layer 2 when JSON parsing fails.  We
-        normalise both shapes here so the caller never has to special-case
-        the error path.
-        """
+        """Return the cleaned Python source for ``AlgebraAgent``."""
         if isinstance(composition, dict):
             schedule_json = json.dumps(composition, indent=2, default=str)
         elif isinstance(composition, str):
-            # Fall back to the raw LLM text — the downstream model can
-            # still try to produce something useful, and we avoid a
-            # confusing `TypeError` deep in the stack.
             schedule_json = composition
         else:
             schedule_json = json.dumps({"error": "unknown schedule type"})

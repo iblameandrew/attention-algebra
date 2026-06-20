@@ -64,10 +64,11 @@ A grammar is the right abstraction for three reasons:
    scheduling dynamics follow directly from the operator. The compiler
    in Layer 3 is total: every parseable expression compiles.
 
-The grammar is tiny — eight terminals, five operators, two numeric
+The grammar is tiny — eight terminals, fifteen operators (five
+sequential, eight RNA-inspired, two grouping forms), and two numeric
 attributes — but it spans the cognitive space densely because the
 operators let you weave the terminals into molecules of arbitrary
-complexity.
+complexity, including long-range secondary structure.
 
 ---
 
@@ -102,32 +103,52 @@ mass       ::=  [1-9][0-9]?    attached to a terminal
 accel      ::=  [1-9][0-9]*    attached to a parenthesised expression
 ```
 
-### Operators — the production rules
+### Sequential operators
 
-| Symbol | Name        | Semantics                                                                                | Schedule logic           |
-| :----: | :---------- | :--------------------------------------------------------------------------------------- | :----------------------- |
-| `~`    | Orbit       | A Judgement unit (T/F) wraps a Perception unit (S/N) and structures it.                 | Orbital (sin/cos mod.)   |
-| `oo`   | Opposition  | Two same-domain, opposite-attitude functions clash; the winner drags to the opposite domain. | Adversarial              |
-| `→`    | Drag        | The right-hand side of an Opposition: a single function, not a group.                    | Drag (exponential)       |
-| `\|`   | Switching   | Alternation between two *cross-domain* functions over time.                              | Stochastic switching     |
-| `+`    | Conjunction | Linear sum of independent functions.                                                     | Linear                   |
-| `( )`  | Grouping    | Override precedence, nest molecules.                                                     | —                        |
+| Symbol | Name           | Semantics                                                                 | Schedule logic        |
+| :----: | :------------- | :------------------------------------------------------------------------ | :-------------------- |
+| `~`    | Orbit          | One Perception + one Judgment structure each other.                       | Orbital               |
+| `oo`   | Opposition     | Same domain, opposite attitude; winner drags to opposite sub-axis.        | Adversarial           |
+| `->`   | Drag           | RHS of Opposition only; single function, not a group.                      | Drag                  |
+| `\|`   | Axis Switch    | Same domain, different sub-axis (S↔N or T↔F) alternation.                | Stochastic switching  |
+| `+`    | Domain Switch  | Perception ↔ Judgment alternation (when operands cross domains).          | Domain switching      |
+| `&`    | Conjunction    | Linear sum of independent functions.                                      | Linear                |
+| `( )`  | Grouping       | Override precedence, nest molecules.                                    | —                     |
+
+### RNA-inspired secondary-structure operators
+
+| Symbol     | Name                  | Semantics                                      | Schedule logic          |
+| :--------: | :-------------------- | :--------------------------------------------- | :---------------------- |
+| `::`       | Stem Pair             | Long-range complementary binding with loop.    | Cooperative Binding     |
+| `^`        | Hairpin               | Self-referential feedback fold.                | Feedback Loop           |
+| `.`        | Bulge                 | Stem with one partial mismatch.                | Partial Adversarial     |
+| `@`        | Pseudoknot            | Crossing non-nested pair constraints.          | Crossing Constraints    |
+| `*`        | Junction              | Multi-way branch (3+ drives).                  | Softmax Junction        |
+| `=`        | Stacking              | Adjacent stems reinforce (γ=1.5).              | Amplified Binding       |
+| `fold[]`   | MFE Fold              | Global minimum free-energy structure.          | Global Equilibrium      |
+| `>>`       | Co-transcriptional    | Left-to-right sequential commitment.           | Sequential Commitment   |
+
+**Complementarity table** (for `::` stems):
+
+* **Regime A (attitude):** `Se::Si`, `Ne::Ni`, `Te::Ti`, `Fe::Fi`
+* **Regime B (cross-axis):** `Se::Ni`, `Si::Ne`, `Te::Fi`, `Ti::Fe`
+
+Dot-bracket sugar: `5Ne(((3Ti)))4Fe` ≡ stem `Ne::Fe` with loop `Ti`.
 
 ### Well-typedness
 
-* `~` requires one Perception terminal on the left and one Judgment
-  terminal on the right (or vice versa). Two Perceptions or two
-  Judgments cannot orbit.
-* `oo` requires two terminals of the *same domain* and *opposite
-  attitude*. It always emits a `→` whose right-hand side flips the
-  domain (S↔N, T↔F) while preserving the winner's attitude.
-* `→` is *not* free-standing; it only appears as the right-hand side
-  of an `oo`.
-* `|` requires two terminals of *different domains*. Same-domain
-  alternation collapses to a single function.
+* `~` requires one Perception and one Judgment terminal (either order).
+* `oo` requires same domain and opposite attitude; always emits `->`
+  flipping sub-axis (S↔N, T↔F) while preserving winner attitude.
+* `->` is not free-standing; RHS must be a single terminal.
+* `|` requires same domain, different sub-axis.
+* `+` as domain switch requires Perception + Judgment operands.
+* `::` requires complementary terminals under Regime A or B.
+* `@` requires crossing (non-nested) stem pairings.
 
-A full BNF lives in [`attention_algebra/algebra.py`](attention_algebra/algebra.py); the
-LLM analyst is given the rules and asked to emit parseable strings.
+Grammar rules live in [`attention_algebra/algebra.py`](attention_algebra/algebra.py)
+(prompt-embedded).  Programmatic validation is in
+[`attention_algebra/parser.py`](attention_algebra/parser.py).
 
 ### Worked examples
 
@@ -138,7 +159,10 @@ LLM analyst is given the rules and asked to emit parseable strings.
 | "Exploring ideas to build a system."                                          | `(Ne ~ Ti)`                                        |
 | "I explore impulsively but feel held back by past regrets."                    | `7Se oo 3Si -> Ni`                                 |
 | "A deep internal value conflict slowly forces me to organise my environment." | `10((Fi oo Fe) -> Te) ~ Si`                        |
-| "A million racing possibilities tethered to social harmony."                  | `100(Ne ~ Fe)`                                     |
+| "A million racing possibilities tethered to social harmony."                  | `fold[100(Ne(((Ti)))Fe)]`                          |
+| "I keep replaying the same imagined outcome."                                 | `^(5Ni)`                                           |
+| "Mostly at peace with the group, one thing nags."                             | `6Fi :: . :: 5Fe`                                  |
+| "Everything hits me at once."                                                 | `5Se * 4Ne * 6Fe * 3Ti`                            |
 
 ---
 
@@ -363,6 +387,7 @@ attention-algebra/
 │   ├── algebra.py         # Layer 1 — the grammar + the analyst
 │   ├── composition.py     # Layer 2 — the harmonic composer
 │   ├── code.py            # Layer 3 — the agent code generator
+│   ├── parser.py          # Programmatic grammar validation
 │   ├── config.py          # Model factory (OpenRouter / llama.cpp)
 │   ├── utils.py           # strip_think_tags, strip_code_fences
 │   └── __init__.py

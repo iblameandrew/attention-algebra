@@ -6,15 +6,6 @@ cognitive function with a concrete optimisation objective, a weight
 (mass), and a global frequency (acceleration).  The schedule is the
 machine-readable contract that Layer 3 turns into executable PyTorch
 code.
-
-A handful of operators in the grammar are translated into distinct
-*scheduling logics*:
-
-* ``~`` (orbit)        → Orbital
-* ``→`` / ``->`` (drag) → Drag
-* ``|`` (switching)     → Stochastic Switching
-* ``oo`` (opposition)   → Adversarial
-* ``+`` (linear)        → Linear
 """
 
 import json
@@ -25,9 +16,6 @@ from langchain_core.prompts import PromptTemplate
 from .config import DEFAULT_OPENROUTER_MODEL, ModelFactory, Provider
 from .utils import strip_think_tags
 
-# Keep the prompt as a regular string.  PromptTemplate substitutes
-# {algebra} once; everything else is preserved verbatim — including
-# the LaTeX braces, which are not escaped.
 COMPOSER_SYSTEM_PROMPT = """
 You are a Mathematical Physicist and Harmonic Composer for a Computational Psychology engine.
 Your task is to translate a "Cognitive Algebra" expression into a "Mathematical Schedule" of optimization objectives for a Reinforcement Learning agent.
@@ -35,52 +23,90 @@ Your task is to translate a "Cognitive Algebra" expression into a "Mathematical 
 ### MAPPING LOGIC (Cognitive -> Mathematical):
 
 1. **Functions to Objectives**:
-   - **Se (Extroverted Sensing)** -> `ExplorationObjective`   | Math: $\\mathcal{H}(\\pi(a|s))$ (Maximize Entropy)
-   - **Si (Introverted Sensing)** -> `GatheringObjective`    | Math: $e^{-||s - \\mu||}$ (Minimize Distance to Centroid)
-   - **Ne (Extroverted Intuition)** -> `ExtrapolationObjective` | Math: $e^{||s - \\mu||}$ (Maximize Distance / Novelty)
-   - **Ni (Introverted Intuition)** -> `InterpolationObjective` | Math: $\\text{proj}_{\\vec{v}}(s)$ (Trajectory Alignment)
-   - **Te (Extroverted Thinking)** -> `ExploitationObjective` | Math: $\\mathbb{E}[V(s)]$ (Maximize Value)
+   - **Se (Extroverted Sensing)** -> `ExplorationObjective`   | Math: $\\mathcal{{H}}(\\pi(a|s))$ (Maximize Entropy)
+   - **Si (Introverted Sensing)** -> `GatheringObjective`    | Math: $e^{{-||s - \\mu||}}$ (Minimize Distance to Centroid)
+   - **Ne (Extroverted Intuition)** -> `ExtrapolationObjective` | Math: $e^{{||s - \\mu||}}$ (Maximize Distance / Novelty)
+   - **Ni (Introverted Intuition)** -> `InterpolationObjective` | Math: $\\text{{proj}}_{{\\vec{{v}}}}(s)$ (Trajectory Alignment)
+   - **Te (Extroverted Thinking)** -> `ExploitationObjective` | Math: $\\mathbb{{E}}[V(s)]$ (Maximize Value)
    - **Ti (Introverted Thinking)** -> `ContrastObjective`    | Math: $|d(s, a) - d(s, b)|$ (Maximize Discrimination)
-   - **Fe (Extroverted Feeling)** -> `IntegrationObjective`  | Math: $\\mathcal{H} + \\alpha V(s)$ (Balance Entropy & Value)
-   - **Fi (Introverted Feeling)** -> `SelectionObjective`    | Math: $e^{-d(s, s_{t-1})}$ (Temporal Consistency)
+   - **Fe (Extroverted Feeling)** -> `IntegrationObjective`  | Math: $\\mathcal{{H}} + \\alpha V(s)$ (Balance Entropy & Value)
+   - **Fi (Introverted Feeling)** -> `SelectionObjective`    | Math: $e^{{-d(s, s_{{t-1}})}}$ (Temporal Consistency)
 
-2. **Operators to Scheduling Logic**:
-   - **Orbit (`~`)**       -> "Orbital".  The weights of the functions oscillate using Sine/Cosine waves.
-   - **Drag (`→` or `->`)** -> "Drag".  The first function decays exponentially, the second grows.
-   - **Switching (`|`)**   -> "Stochastic Switching".  Objectives toggle on/off based on probability.
-   - **Opposition (`oo`)** -> "Adversarial".  Both objectives are active, but the secondary has a negative weight.
-   - **Standard (`+`)**    -> "Linear".  Constant weights.
+2. **Sequential Operators to Scheduling Logic**:
+   - **Orbit (`~`)**       -> "Orbital".  Weights oscillate using Sine/Cosine waves.
+   - **Drag (`->` or `→`)** -> "Drag".  First function decays exponentially, second grows.
+   - **Axis Switch (`|`)** -> "Stochastic Switching".  Same-domain sub-axis alternation.
+   - **Domain Switch (`+` across P/J)** -> "Domain Switching".  Perception/Judgment alternation.
+   - **Opposition (`oo`)** -> "Adversarial".  Secondary objective has negative weight.
+   - **Conjunction (`&` or `+`)** -> "Linear".  Constant weights.
 
-3. **Physics (Coefficients)**:
-   - **Mass** (a bare integer prefix attached directly to a function, e.g. `5Si`): becomes the `weight` of the objective.
-   - **Acceleration** (an integer prefix applied to a parenthesised group, e.g. `40(...)`): becomes the `global_frequency` of the interaction.
+3. **RNA-Inspired Operators to Scheduling Logic**:
+   - **Stem Pair (`::` or dot-bracket `A(((loop)))B`)** -> "Cooperative Binding".  Stem weights coupled by distance; loop terms at reduced weight.
+   - **Hairpin (`^`)** -> "Feedback Loop".  Decaying self-referential temporal consistency.
+   - **Bulge (`.`)** -> "Partial Adversarial".  Stem pair with small negative bulge weight.
+   - **Pseudoknot (`@`)** -> "Crossing Constraints".  Constrained adversarial optimisation.
+   - **Junction (`*`)** -> "Softmax Junction".  Dynamic softmax reweighting across 3+ objectives.
+   - **Stacking (`=`)** -> "Amplified Binding".  Adjacent stems amplified by factor gamma=1.5.
+   - **MFE fold (`fold[]`)** -> "Global Equilibrium".  Minimum free-energy structure selection.
+   - **Co-transcriptional (`>>`)** -> "Sequential Commitment".  Prefix-locked progressive folding.
+
+4. **Physics (Coefficients)**:
+   - **Mass** (integer prefix on terminal, e.g. `5Si`): becomes `weight` in score.
+   - **Acceleration** (integer prefix on group, e.g. `40(...)`): becomes `global_frequency`.
 
 ### TASK:
-Analyze the Input Algebra.  Return a JSON object describing the "Score".
+Analyze the Input Algebra.  Decompose nested/RNA structures into a `nodes` tree.  Set top-level `schedule_logic` to the **outermost** or **dominant** dynamic.  Compute `fold_energy` when `fold[]` is present (sum: stems -min(m_A,m_B), loops +0.5 per loop terminal, pseudoknots +5 per crossing).
 
 **Input Algebra**: {algebra}
 
 ### OUTPUT FORMAT (Strict JSON):
 {{
     "original_expression": "{algebra}",
-    "schedule_logic": "Orbital" | "Drag" | "Stochastic Switching" | "Linear" | "Adversarial",
-    "global_frequency": <float from acceleration coefficient, default 1.0>,
+    "structure_type": "flat" | "nested",
+    "schedule_logic": "<dominant logic from lists above>",
+    "global_frequency": <float, default 1.0>,
+    "fold_energy": <float or null>,
+    "nodes": [
+        {{
+            "operator": "StemPair" | "Orbit" | "Hairpin" | "Pseudoknot" | "Junction" | "Stacking" | "Fold" | "Sequential" | "Opposition" | "Linear",
+            "schedule_logic": "<logic for this node>",
+            "terminals": ["Ne", "Fe"],
+            "loop": ["Ti"],
+            "children": []
+        }}
+    ],
     "score": [
         {{
             "voice": "Voice 1 (Function Name)",
             "symbol": "ObjectiveClassName",
             "mass": <float>,
             "formula": "LaTeX string",
-            "description": "Brief physics description"
-        }},
-        ...
+            "description": "Brief physics description",
+            "role": "stem" | "loop" | "bulge" | "primary" | "secondary"
+        }}
     ],
-    "math_narrative": "A short sentence describing the mathematical interaction (e.g., 'Entropy maximization oscillating against temporal consistency')."
+    "math_narrative": "Short sentence describing the mathematical interaction."
 }}
 """
 
-
 _FENCE_RE = re.compile(r"^\s*```(?:json)?\s*\n?(.*?)\n?\s*```\s*$", re.DOTALL)
+
+SCHEDULE_EQUATIONS: dict[str, str] = {
+    "Orbital": "orbital",
+    "Drag": "drag",
+    "Stochastic Switching": "stochastic",
+    "Domain Switching": "stochastic",
+    "Adversarial": "adversarial",
+    "Linear": "linear",
+    "Cooperative Binding": "cooperative",
+    "Feedback Loop": "feedback",
+    "Partial Adversarial": "partial_adversarial",
+    "Crossing Constraints": "crossing",
+    "Softmax Junction": "softmax",
+    "Amplified Binding": "amplified",
+    "Global Equilibrium": "equilibrium",
+    "Sequential Commitment": "sequential",
+}
 
 
 def _extract_json(text: str) -> str:
@@ -89,6 +115,103 @@ def _extract_json(text: str) -> str:
     if match:
         return match.group(1).strip()
     return text.strip()
+
+
+def _equation_for_logic(logic: str, score: list, freq: float) -> str:
+    """Build a LaTeX master equation for a single schedule logic."""
+    terms: list[str] = []
+    eq_type = SCHEDULE_EQUATIONS.get(logic, "linear")
+
+    if eq_type == "orbital":
+        for i, track in enumerate(score):
+            trig = "\\sin" if i % 2 == 0 else "\\cos"
+            terms.append(
+                f"{track['mass']} \\cdot {trig}(\\omega t) "
+                f"\\cdot [{track['formula']}]"
+            )
+        eq = " + ".join(terms)
+        return f"$$ J(\\theta) = \\sum_{{t}} ({eq}) $$" if eq else ""
+
+    if eq_type == "drag":
+        if not score:
+            return ""
+        t0 = score[0]
+        terms.append(
+            f"({t0['mass']} \\cdot e^{{-\\lambda t}}) \\cdot [{t0['formula']}]"
+        )
+        for track in score[1:]:
+            terms.append(
+                f"({track['mass']} \\cdot (1 - e^{{-\\lambda t}})) "
+                f"\\cdot [{track['formula']}]"
+            )
+        return f"$$ J(\\theta) = \\int ({' + '.join(terms)}) dt $$"
+
+    if eq_type == "adversarial":
+        if not score:
+            return ""
+        terms.append(f"{score[0]['mass']} \\cdot [{score[0]['formula']}]")
+        for track in score[1:]:
+            terms.append(f" - {track['mass']} \\cdot [{track['formula']}]")
+        return f"$$ J(\\theta) = \\max_\\pi ({''.join(terms)}) $$"
+
+    if eq_type == "cooperative":
+        stems = [t for t in score if t.get("role") in (None, "stem", "primary")]
+        loops = [t for t in score if t.get("role") == "loop"]
+        stem_eq = " + ".join(
+            f"\\min(m) \\cdot e^{{-d/\\lambda}} \\cdot [{t['formula']}]" for t in stems
+        )
+        loop_eq = " + ".join(
+            f"(1 - e^{{-d/\\lambda}}) \\cdot [{t['formula']}]" for t in loops
+        )
+        parts = [p for p in (stem_eq, loop_eq) if p]
+        return f"$$ J(\\theta) = {' + '.join(parts)} $$" if parts else ""
+
+    if eq_type == "feedback":
+        if score:
+            t = score[0]
+            return (
+                f"$$ J(\\theta) = \\sum_t {t['mass']} \\cdot e^{{-\\alpha t}} "
+                f"\\cdot [{t['formula']}] + \\beta \\cdot [{t['formula']}]_{{t-1}} $$"
+            )
+        return ""
+
+    if eq_type == "partial_adversarial":
+        if len(score) >= 2:
+            return (
+                f"$$ J(\\theta) = {score[0]['mass']} \\cdot [{score[0]['formula']}] "
+                f"- \\varepsilon \\cdot [{score[1]['formula']}] $$"
+            )
+        return ""
+
+    if eq_type == "crossing":
+        if score:
+            body = " + ".join(f"{t['mass']} \\cdot [{t['formula']}]" for t in score)
+            return f"$$ J(\\theta) = \\max_\\pi ({body}) \\quad \\text{{s.t.}} \\; g_1 \\cdot g_2 \\leq \\varepsilon $$"
+        return ""
+
+    if eq_type == "softmax":
+        if score:
+            body = ", ".join(f"m_{{i}} \\cdot [{t['formula']}]" for i, t in enumerate(score))
+            return f"$$ w_i(t) = \\mathrm{{softmax}}({body}) $$"
+        return ""
+
+    if eq_type == "amplified":
+        for track in score:
+            terms.append(f"{track['mass']} \\cdot \\gamma \\cdot [{track['formula']}]")
+        eq = " + ".join(terms)
+        return f"$$ J(\\theta) = {eq} $$" if eq else ""
+
+    if eq_type == "equilibrium":
+        return "$$ S^* = \\arg\\min_S \\left( \\sum_\\text{{stems}} (-\\Delta G_\\text{{pair}}) + \\sum_\\text{{loops}} \\Delta G_\\text{{loop}} + \\sum_\\text{{pk}} \\Delta G_\\text{{pk}} \\right) $$"
+
+    if eq_type == "sequential":
+        return "$$ w_i(t) = m_i \\cdot \\mathbb{{1}}[i \\leq t_\\text{{commit}}] $$"
+
+    # Linear / stochastic / default
+    for track in score:
+        terms.append(f"{track['mass']} \\cdot [{track['formula']}]")
+    eq = " + ".join(terms)
+    return f"$$ J(\\theta) = {eq} $$" if eq else ""
 
 
 class Composer:
@@ -100,8 +223,6 @@ class Composer:
         provider: Provider = "openrouter",
         temperature: float = 0.2,
     ):
-        # Strict JSON adherence requires low temperature.  Anything above
-        # ~0.3 routinely produces broken JSON on smaller local models.
         self.llm = ModelFactory.get_model(
             model_name=model_name,
             provider=provider,
@@ -128,8 +249,11 @@ class Composer:
         except json.JSONDecodeError as exc:
             return {
                 "original_expression": "Error parsing",
+                "structure_type": "flat",
                 "schedule_logic": "Linear",
                 "global_frequency": 1.0,
+                "fold_energy": None,
+                "nodes": [],
                 "score": [],
                 "math_narrative": f"Error: {exc}",
                 "raw_output": cleaned,
@@ -142,68 +266,47 @@ class Composer:
         narrative = composition.get("math_narrative", "")
         freq = composition.get("global_frequency", 1.0)
         score = composition.get("score", [])
+        nodes = composition.get("nodes", [])
+        fold_energy = composition.get("fold_energy")
+        structure_type = composition.get("structure_type", "flat")
 
-        report = f"### Cognitive Schedule: **{logic}**\n"
-        report += f"*{narrative}* (Global Accel: $\\omega={freq}$)\n\n"
+        report = f"### Cognitive Schedule: **{logic}**"
+        if structure_type == "nested":
+            report += " (nested)"
+        report += "\n"
+        report += f"*{narrative}* (Global Accel: $\\omega={freq}$)"
+        if fold_energy is not None:
+            report += f" | Fold Energy: $\\Delta G={fold_energy}$"
+        report += "\n\n"
 
-        report += "| Function | Objective Class | Math Form | Mass ($m$) |\n"
-        report += "| :--- | :--- | :--- | :---: |\n"
+        report += "| Function | Objective Class | Math Form | Mass ($m$) | Role |\n"
+        report += "| :--- | :--- | :--- | :---: | :--- |\n"
 
         for track in score:
-            # Escape pipes in latex for markdown table compatibility.
             clean_formula = track["formula"].replace("|", "\\|")
+            role = track.get("role", "—")
             report += (
                 f"| {track['voice']} | `{track['symbol']}` | "
-                f"${clean_formula}$ | {track['mass']} |\n"
+                f"${clean_formula}$ | {track['mass']} | {role} |\n"
             )
 
         report += "\n**Intercalation Dynamics:**\n"
+        report += _equation_for_logic(logic, score, freq)
 
-        # Master equation generation.  Each branch handles the empty
-        # `score` case to avoid emitting invalid LaTeX such as
-        # `J(θ) = ∫ () dt`.
-        terms = []
-        if logic == "Orbital":
-            for i, track in enumerate(score):
-                trig = "\\sin" if i % 2 == 0 else "\\cos"
-                terms.append(
-                    f"{track['mass']} \\cdot {trig}(\\omega t) "
-                    f"\\cdot [{track['formula']}]"
-                )
-            eq = " + ".join(terms)
-            report += f"$$ J(\\theta) = \\sum_{{t}} ({eq}) $$" if eq else ""
+        if nodes:
+            report += "\n\n**Structure Tree:**\n"
+            for i, node in enumerate(nodes):
+                op = node.get("operator", "?")
+                node_logic = node.get("schedule_logic", "")
+                terminals = ", ".join(node.get("terminals", []))
+                loop = ", ".join(node.get("loop", []))
+                report += f"- Node {i + 1}: `{op}` ({node_logic})"
+                if terminals:
+                    report += f" — terminals: {terminals}"
+                if loop:
+                    report += f", loop: {loop}"
+                report += "\n"
 
-        elif logic == "Drag":
-            if score:
-                t0 = score[0]
-                terms.append(
-                    f"({t0['mass']} \\cdot e^{{-\\lambda t}}) \\cdot [{t0['formula']}]"
-                )
-                for track in score[1:]:
-                    terms.append(
-                        f"({track['mass']} \\cdot (1 - e^{{-\\lambda t}})) "
-                        f"\\cdot [{track['formula']}]"
-                    )
-                eq = " + ".join(terms)
-                report += f"$$ J(\\theta) = \\int ({eq}) dt $$"
-
-        elif logic == "Adversarial":
-            if score:
-                terms.append(f"{score[0]['mass']} \\cdot [{score[0]['formula']}]")
-                for track in score[1:]:
-                    terms.append(f" - {track['mass']} \\cdot [{track['formula']}]")
-                eq = "".join(terms)
-                report += f"$$ J(\\theta) = \\max_\\pi ({eq}) $$"
-
-        else:  # Linear / default
-            for track in score:
-                terms.append(f"{track['mass']} \\cdot [{track['formula']}]")
-            eq = " + ".join(terms)
-            if eq:
-                report += f"$$ J(\\theta) = {eq} $$"
-
-        # Surface the raw LLM output when parsing failed so the user
-        # can still see what the model said.
         if not score and "raw_output" in composition:
             report += (
                 "\n\n<details><summary>Raw model output</summary>\n\n"
