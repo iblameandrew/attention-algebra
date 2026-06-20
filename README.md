@@ -5,9 +5,8 @@
 > cognitive spectrograms that read a speaker's functional state like a
 > sound reads on a spectrum.
 
-![Attention Algebra — a cognitive grammar compiler](assets/attention-algebra-hero.png)
+<img width="1173" height="642" alt="image" src="https://github.com/user-attachments/assets/4e0e3068-5e69-47bd-a4b9-0a6e894ab56d" />
 
----
 
 ## The Idea
 
