@@ -2,7 +2,8 @@
 
 > A formal grammar that lifts natural language into a higher-dimensional
 > space of *functional constituents*, and compiles the result into
-> executable reinforcement-learning agents.
+> cognitive spectrograms that read a speaker's functional state like a
+> sound reads on a spectrum.
 
 ![Attention Algebra — a cognitive grammar compiler](assets/attention-algebra-hero.png)
 
@@ -22,22 +23,20 @@ small formal language whose terminals are the eight irreducible
 *functional constituents* of cognition and whose operators describe
 how those constituents interact. The expression is then compiled,
 layer by layer, into a mathematical schedule and finally into a
-PyTorch agent whose objective function is a direct image of the
-original sentence.
+**cognitive spectrogram** — a time–frequency image of the speaker's
+functional state.
 
 In one sentence:
 
 > *Attention Algebra is a type system and compiler for language, where the
-> types are the eight Jungian functions and the compiled artefacts
-> are reinforcement-learning policies whose loss landscapes are
-> faithful encodings of the speaker's cognitive state.*
+> types are the eight Jungian functions and the compiled artefact is a
+> spectrogram that maps algebraic math equivalences onto a readable
+> cognitive spectrum.*
 
-The pipeline is a strict functor from the category of strings under
-"interpretation" to the category of differentiable programs under
-"gradient descent":
+The pipeline lifts language into spectral form:
 
 ```
-  string  ───parse───▶  ⟨algebra⟩  ───compose───▶  ⟨schedule⟩  ───emit───▶  ⟨agent.py⟩
+  string  ───parse───▶  ⟨algebra⟩  ───compose───▶  ⟨schedule⟩  ───read───▶  ⟨spectrogram⟩
        (Layer 1)            (Layer 2)                       (Layer 3)
 ```
 
@@ -61,8 +60,9 @@ A grammar is the right abstraction for three reasons:
    different attitude — not a legal orbit) and accept `(Ne ~ Ti)`.
 3. **Realisability.** Every well-typed expression has a *canonical
    mathematical image*: a sum of weighted objective functions whose
-   scheduling dynamics follow directly from the operator. The compiler
-   in Layer 3 is total: every parseable expression compiles.
+   scheduling dynamics follow directly from the operator. The reader
+   in Layer 3 is total: every parseable expression renders to a
+   spectrogram.
 
 The grammar is tiny — eight terminals, fifteen operators (five
 sequential, eight RNA-inspired, two grouping forms), and two numeric
@@ -269,18 +269,35 @@ schedule = composer.compose("7Ne oo 3Si -> Fe")
 #  'math_narrative': '...'}
 ```
 
-### Layer 3 — The Mechanic (`attention_algebra.code`)
+### Layer 3 — The Spectrogram Reader (`attention_algebra.spectrum`)
 
 * **Input:** the Mathematical Schedule.
-* **Process:** an LLM emits a stand-alone Python file deriving from
-  `capo.PPOAgent`, with the per-step weight dynamics
-  (`sin`/`cos` for Orbital, `exp(-λt)` for Drag, etc.) implemented in
-  `get_action`.
-* **Output:** a string of executable Python that you can save and run.
+* **Process:** deterministic synthesis — each Jungian terminal maps to a
+  carrier frequency; schedule logic modulates amplitude envelopes over
+  time (`sin`/`cos` for Orbital, `exp(-λt)` for Drag, softmax for
+  Junction, etc.); the mixed signal is rendered as a spectrogram with
+  terminal band annotations.
+* **Output:** a spectrogram image plus a spectrum reading report
+  (dominant bands, carrier table, fold energy).
 
-The compiled code preserves every coefficient from the original
-expression, so the agent's loss landscape is bit-for-bit the same
-shape as the speaker's cognitive state.
+| Terminal | Carrier (Hz) | Spectral region |
+| :------: | -----------: | :-------------- |
+| `Se`     | 82.4         | Low perception  |
+| `Si`     | 110.0        | Low perception  |
+| `Ne`     | 164.8        | Mid perception  |
+| `Ni`     | 220.0        | Mid perception  |
+| `Te`     | 293.7        | Mid judgment    |
+| `Ti`     | 392.0        | Mid judgment    |
+| `Fe`     | 493.9        | High judgment   |
+| `Fi`     | 587.3        | High judgment   |
+
+```python
+from attention_algebra import SpectrogramReader
+
+reader = SpectrogramReader()
+image, report = reader.read(schedule)
+# image: numpy RGB array; report: markdown spectrum reading
+```
 
 ---
 
@@ -335,13 +352,13 @@ python app.py
 This launches a three-pane Gradio interface. Type a sentence in
 *Context*, choose **OpenRouter** or **llama.cpp (Local)**, pick a model,
 click *Analyze*, and watch the algebra, the math schedule, and the
-agent code appear in order.
+cognitive spectrogram appear in order.
 
 ### Programmatic
 
 ```python
 import os
-from attention_algebra import AlgebraAnalyst, Composer, CodeGenerator
+from attention_algebra import AlgebraAnalyst, Composer, SpectrogramReader
 
 os.environ.setdefault("OPENROUTER_API_KEY", "...")
 model = "google/gemini-2.5-flash"
@@ -354,12 +371,8 @@ algebra = AlgebraAnalyst(model_name=model, provider="openrouter").analyze(
 # Layer 2: compose.
 schedule = Composer(model_name=model, provider="openrouter").compose(algebra)
 
-# Layer 3: emit code.
-agent_src = CodeGenerator(model_name=model, provider="openrouter").generate_code(
-    schedule
-)
-with open("algebra_agent.py", "w") as f:
-    f.write(agent_src)
+# Layer 3: spectrogram.
+image, report = SpectrogramReader().read(schedule)
 ```
 
 ### Local llama.cpp
@@ -386,7 +399,7 @@ attention-algebra/
 ├── attention_algebra/
 │   ├── algebra.py         # Layer 1 — the grammar + the analyst
 │   ├── composition.py     # Layer 2 — the harmonic composer
-│   ├── code.py            # Layer 3 — the agent code generator
+│   ├── spectrum.py        # Layer 3 — the spectrogram reader
 │   ├── parser.py          # Programmatic grammar validation
 │   ├── config.py          # Model factory (OpenRouter / llama.cpp)
 │   ├── utils.py           # strip_think_tags, strip_code_fences

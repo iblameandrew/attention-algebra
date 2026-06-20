@@ -1,8 +1,7 @@
 """Attention Algebra — Gradio front-end.
 
-Wires the three pipeline layers (Algebra → Composition → Code) into a
-simple three-pane interface.  Each model is instantiated lazily on the
-first request and cached for the lifetime of the process.
+Wires the three pipeline layers (Algebra → Composition → Spectrogram) into
+a simple interface.  Layers 1–2 use LLMs; Layer 3 is deterministic.
 """
 
 import os
@@ -12,7 +11,6 @@ import gradio as gr
 from dotenv import load_dotenv
 
 from attention_algebra.algebra import AlgebraAnalyst
-from attention_algebra.code import CodeGenerator
 from attention_algebra.composition import Composer
 from attention_algebra.config import (
     DEFAULT_LLAMA_CPP_MODEL,
@@ -20,6 +18,7 @@ from attention_algebra.config import (
     OPENROUTER_MODELS,
     ModelFactory,
 )
+from attention_algebra.spectrum import SpectrogramReader
 
 load_dotenv()
 
@@ -90,6 +89,7 @@ def _validate_provider(provider: str) -> str | None:
 # --- MODEL CACHE -----------------------------------------------------------
 
 _MODEL_CACHE: dict[tuple[str, str, str], object] = {}
+_SPECTROGRAM_READER = SpectrogramReader()
 
 
 def _get_analyst(model_name: str, provider: str) -> AlgebraAnalyst:
@@ -110,33 +110,26 @@ def _get_composer(model_name: str, provider: str) -> Composer:
     return _MODEL_CACHE[key]
 
 
-def _get_coder(model_name: str, provider: str) -> CodeGenerator:
-    key = (model_name, provider, "coder")
-    if key not in _MODEL_CACHE:
-        _MODEL_CACHE[key] = CodeGenerator(
-            model_name=model_name, provider=_provider_key(provider)
-        )
-    return _MODEL_CACHE[key]
-
-
 # --- PIPELINE --------------------------------------------------------------
 
 
 def process_pattern(text: str, model_name: str, provider: str):
-    """Run the three-layer pipeline and return ``(algebra, math, code)``."""
+    """Run the three-layer pipeline and return ``(algebra, math, image, report)``."""
+    empty_img = None
+
     if not text or not text.strip():
-        return "Please enter text.", "", ""
+        return "Please enter text.", "", empty_img, ""
 
     if not model_name:
-        return "Error: no model selected.", "", ""
+        return "Error: no model selected.", "", empty_img, ""
 
     provider_error = _validate_provider(provider)
     if provider_error:
-        return provider_error, "", ""
+        return provider_error, "", empty_img, ""
 
     algebraic_expr = ""
     math_report = ""
-    pytorch_code = ""
+    composition: dict = {}
 
     # Layer 1 — Algebra
     try:
@@ -144,7 +137,7 @@ def process_pattern(text: str, model_name: str, provider: str):
         analyst = _get_analyst(model_name, provider)
         algebraic_expr = _strip_think_tags(analyst.analyze(text))
     except Exception as exc:  # noqa: BLE001 — surface the message verbatim
-        return f"Error L1: {exc}", "", ""
+        return f"Error L1: {exc}", "", empty_img, ""
 
     # Layer 2 — Composition
     try:
@@ -157,19 +150,18 @@ def process_pattern(text: str, model_name: str, provider: str):
             math_report = _clean_latex_formatting(raw_report)
         else:
             math_report = f"Error parsing JSON: {composition}"
-            composition = {}  # make layer 3 still emit a sensible error
+            composition = {}
     except Exception as exc:  # noqa: BLE001
-        return algebraic_expr, f"Error L2: {exc}", ""
+        return algebraic_expr, f"Error L2: {exc}", empty_img, ""
 
-    # Layer 3 — Code
+    # Layer 3 — Spectrogram (deterministic)
     try:
-        print("--- L3: Code Gen ---")
-        coder = _get_coder(model_name, provider)
-        pytorch_code = coder.generate_code(composition)
+        print("--- L3: Spectrogram ---")
+        image, spectrum_report = _SPECTROGRAM_READER.read(composition)
     except Exception as exc:  # noqa: BLE001
-        return algebraic_expr, math_report, f"Error L3: {exc}"
+        return algebraic_expr, math_report, empty_img, f"Error L3: {exc}"
 
-    return algebraic_expr, math_report, pytorch_code
+    return algebraic_expr, math_report, image, spectrum_report
 
 
 # --- UI --------------------------------------------------------------------
@@ -270,14 +262,15 @@ def build_ui() -> gr.Blocks:
                 ],
             )
 
-            gr.Markdown("### Layer 3: Code")
-            out3 = gr.Code(language="python")
+            gr.Markdown("### Layer 3: Spectrogram")
+            out3 = gr.Image(label="Cognitive Spectrum", type="numpy")
+            out4 = gr.Markdown(label="Spectrum Reading")
 
         provider.change(_provider_model_choices, inputs=[provider], outputs=[model])
         btn.click(
             process_pattern,
             inputs=[txt_input, model, provider],
-            outputs=[out1, out2, out3],
+            outputs=[out1, out2, out3, out4],
         )
 
     return demo

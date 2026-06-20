@@ -4,8 +4,8 @@ Reads the Cognitive-Algebra expression emitted by Layer 1 and maps it
 into a **Mathematical Schedule**: a JSON document that pairs every
 cognitive function with a concrete optimisation objective, a weight
 (mass), and a global frequency (acceleration).  The schedule is the
-machine-readable contract that Layer 3 turns into executable PyTorch
-code.
+machine-readable contract that Layer 3 renders as a cognitive
+spectrogram.
 """
 
 import json
@@ -18,7 +18,7 @@ from .utils import strip_think_tags
 
 COMPOSER_SYSTEM_PROMPT = """
 You are a Mathematical Physicist and Harmonic Composer for a Computational Psychology engine.
-Your task is to translate a "Cognitive Algebra" expression into a "Mathematical Schedule" of optimization objectives for a Reinforcement Learning agent.
+Your task is to translate a "Cognitive Algebra" expression into a "Mathematical Schedule" whose objectives map to spectral bands for spectrogram rendering.
 
 ### MAPPING LOGIC (Cognitive -> Mathematical):
 
