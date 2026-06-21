@@ -1,4 +1,4 @@
-# Attention Algebra — A Cognitive Grammar for Language
+# Attention Algebra — A Grammar for Language
 
 > A formal grammar that lifts natural language into a higher-dimensional
 > space of *functional constituents*, and compiles the result into
