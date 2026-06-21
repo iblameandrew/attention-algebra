@@ -114,7 +114,7 @@ accel      ::=  [1-9][0-9]*    attached to a parenthesised expression
 | `&`    | Conjunction    | Linear sum of independent functions.                                      | Linear                |
 | `( )`  | Grouping       | Override precedence, nest molecules.                                    | —                     |
 
-### RNA-inspired secondary-structure operators
+### Secondary-structure operators
 
 | Symbol     | Name                  | Semantics                                      | Schedule logic          |
 | :--------: | :-------------------- | :--------------------------------------------- | :---------------------- |
@@ -207,88 +207,6 @@ Pass `provider="openrouter"` or `provider="llama.cpp"` to each layer
 class.  The Gradio UI exposes the same choice as a radio button.
 
 ---
-
-## The Three Layers
-
-The grammar is realised by a strict, three-stage compiler. Each layer
-is a pure function of the previous layer's output, and the layers
-themselves are language-model calls constrained by an explicit
-production rule. You can swap any layer for your own implementation as
-long as it respects the input/output contract.
-
-### Layer 1 — The Algebraic Analyst (`attention_algebra.algebra`)
-
-* **Input:** natural language.
-* **Process:** an LLM, prompted with the grammar reference, produces
-  a single parse tree flattened to a string.
-* **Output:** a *type-checked* expression in the grammar.
-
-```python
-from attention_algebra import AlgebraAnalyst
-analyst = AlgebraAnalyst(
-    model_name="google/gemini-2.5-flash",
-    provider="openrouter",
-)
-expr = analyst.analyze("I am torn between exploration and holding on.")
-# '7Ne oo 3Si -> Fe'
-```
-
-### Layer 2 — The Harmonic Composer (`attention_algebra.composition`)
-
-* **Input:** a grammar expression.
-* **Process:** an LLM, prompted with the function-to-objective table
-  below, emits a JSON *Mathematical Schedule* describing the loss
-  landscape.
-* **Output:** a JSON object with `schedule_logic`, `score`, and
-  `math_narrative`.
-
-The canonical mapping from terminal to optimisation objective:
-
-| Terminal | Objective class        | Math (LaTeX)                       | Interpretation                       |
-| :------: | :--------------------- | :--------------------------------- | :----------------------------------- |
-| `Se`     | `ExplorationObjective` | $\mathcal{H}(\pi(a\mid s))$         | Maximise policy entropy.             |
-| `Si`     | `GatheringObjective`   | $e^{-\lVert s-\mu\rVert}$            | Cluster around the centroid.         |
-| `Ne`     | `ExtrapolationObjective` | $e^{\lVert s-\mu\rVert}$           | Seek novel states.                   |
-| `Ni`     | `InterpolationObjective` | $\text{proj}_{\vec v}(s)$          | Follow an imagined trajectory.       |
-| `Te`     | `ExploitationObjective` | $\mathbb{E}[V(s)]$                  | Maximise value.                      |
-| `Ti`     | `ContrastObjective`    | $\lvert d(s,a)-d(s,b)\rvert$         | Maximise discrimination.             |
-| `Fe`     | `IntegrationObjective` | $\mathcal{H} + \alpha V(s)$         | Balance exploration and value.       |
-| `Fi`     | `SelectionObjective`   | $e^{-d(s, s_{t-1})}$                | Stay consistent with the past.       |
-
-```python
-from attention_algebra import Composer
-composer = Composer(
-    model_name="google/gemini-2.5-flash",
-    provider="openrouter",
-)
-schedule = composer.compose("7Ne oo 3Si -> Fe")
-# {'schedule_logic': 'Adversarial',
-#  'global_frequency': 1.0,
-#  'score': [{'voice': '...', 'symbol': 'ExtrapolationObjective', ...}, ...],
-#  'math_narrative': '...'}
-```
-
-### Layer 3 — The Spectrogram Reader (`attention_algebra.spectrum`)
-
-* **Input:** the Mathematical Schedule.
-* **Process:** deterministic synthesis — each Jungian terminal maps to a
-  carrier frequency; schedule logic modulates amplitude envelopes over
-  time (`sin`/`cos` for Orbital, `exp(-λt)` for Drag, softmax for
-  Junction, etc.); the mixed signal is rendered as a spectrogram with
-  terminal band annotations.
-* **Output:** a spectrogram image plus a spectrum reading report
-  (dominant bands, carrier table, fold energy).
-
-| Terminal | Carrier (Hz) | Spectral region |
-| :------: | -----------: | :-------------- |
-| `Se`     | 82.4         | Low perception  |
-| `Si`     | 110.0        | Low perception  |
-| `Ne`     | 164.8        | Mid perception  |
-| `Ni`     | 220.0        | Mid perception  |
-| `Te`     | 293.7        | Mid judgment    |
-| `Ti`     | 392.0        | Mid judgment    |
-| `Fe`     | 493.9        | High judgment   |
-| `Fi`     | 587.3        | High judgment   |
 
 ```python
 from attention_algebra import SpectrogramReader
@@ -409,25 +327,13 @@ attention-algebra/
 
 ---
 
-## Roadmap to AGI
+## Future direction and personal note
 
-We use the grammar as an *evaluation instrument*. A model that can
-parse into, reason over, and emit from all eight terminals in all
-five operator configurations is by construction manipulating the
-same functional constituents a human does. Coupled with a target
-distribution over parse trees (derived empirically from a corpus of
-human reasoning traces), the grammar lets us define a *cognitive
-completeness* criterion for AGI that is independent of any particular
-benchmark: a model is generally intelligent iff its distribution
-over grammar expressions matches the human distribution under KL
-divergence below a threshold.
+I've spent 6 years writing down the original operators and the _people patterns_ that make it meaningful - ever since 2020 ive been running big data experiments with massive data dumps all over the web running spectral analysis on them. The next step would be to make a collection of patterns that group the grammar expressions into taxonomies -  i address that is dangerously close to crackpot territory but honestly, its still a good hobby. I will eventually train a tiny model with this and see how much using this as meta-tagging does an economy on tokens spent.
 
-In the meantime, Attention Algebra is a tool for *diagnosing* what a model is
-doing. Drop a chain-of-thought trace in, get the grammar expression
-out, and read the cognitive state of the model the way a spectrogram
-reads a sound.
+A lot of this README was automated, so some slop is expected.
 
----
+Have a nice day.
 
 ## License
 
