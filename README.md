@@ -329,7 +329,7 @@ attention-algebra/
 
 ## Future direction and personal note
 
-I've spent 6 years _hand-writing_ the original operators and the _people patterns_ that make it meaningful - ever since 2020 ive been running big data experiments with massive data dumps all over the web running spectral clustering on them. The next step would be to make a collection of patterns that group the grammar expressions into taxonomies -  i address that this is crackpot territory but honestly, its still a good hobby: to me theres no difference between psychology and physics, and this a hill im willing to die on. I will eventually train a tiny model with this and see how much using this as meta-tagging does an economy on tokens spent.
+I've spent 6 years _hand-writing_ the original operators and the _people patterns_ that make it meaningful - ever since 2020 ive been running big data experiments with massive data dumps all over the web running spectral clustering on them trying to understand what was the hidden order to psychology: the answer is attention. The next step would be to make a collection of patterns that group the grammar expressions into taxonomies -  i address that this is crackpot territory but honestly, its still a good hobby: to me theres no difference between psychology and physics, and this a hill im willing to die on. I will eventually train a tiny model with this and see how much using this as meta-tagging does an economy on tokens spent.
 
 A lot of this README was automated, so some slop is expected.
 
